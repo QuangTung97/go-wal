@@ -16,14 +16,12 @@ func TestLSN_ToPageNum(t *testing.T) {
 }
 
 func TestLogDataOffset_ToLSN(t *testing.T) {
-	t.Run("firt byte of page 1", func(t *testing.T) {
-		offset := LogDataOffset(DataSizePerPage)
-		assert.Equal(t, LSN(PageSize+pageHeaderSize), offset.ToLSN())
+	offset := LogDataOffset(DataSizePerPage)
+	assert.Equal(t, LSN(PageSize+pageHeaderSize), offset.ToLSN())
 
-		offset = LogDataOffset(DataSizePerPage) + 1
-		assert.Equal(t, LSN(PageSize+pageHeaderSize+1), offset.ToLSN())
+	offset = LogDataOffset(DataSizePerPage) + 1
+	assert.Equal(t, LSN(PageSize+pageHeaderSize+1), offset.ToLSN())
 
-		offset = LogDataOffset(2*DataSizePerPage) + DataSizePerPage - 1 // last byte of page 2
-		assert.Equal(t, LSN(3*PageSize-1), offset.ToLSN())
-	})
+	offset = LogDataOffset(2*DataSizePerPage) + DataSizePerPage - 1 // last byte of page 2
+	assert.Equal(t, LSN(3*PageSize-1), offset.ToLSN())
 }

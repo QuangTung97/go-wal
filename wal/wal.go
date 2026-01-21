@@ -4,7 +4,7 @@ type WAL struct {
 	maxOffset LogDataOffset
 }
 
-func NewWAL() *WAL {
+func NewWAL(filename string, fileSize int64) *WAL {
 	return &WAL{
 		maxOffset: DataSizePerPage - 1,
 	}

@@ -24,4 +24,4 @@ func (o LogDataOffset) ToLSN() LSN {
 
 type PageNum uint64
 
-type PageGeneration uint32
+type PageGeneration uint64

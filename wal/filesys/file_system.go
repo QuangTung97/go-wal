@@ -3,6 +3,7 @@ package filesys
 import (
 	"io"
 	"os"
+	"syscall"
 )
 
 type FileSystem interface {
@@ -34,7 +35,8 @@ func (f *fileSystemImpl) CreateEmptyFile(name string, fileSize int64) (io.WriteC
 		return nil, err
 	}
 
-	if err := os.Truncate(name, fileSize); err != nil {
+	fd := file.Fd()
+	if err := syscall.Fallocate(int(fd), 0, 0, fileSize); err != nil {
 		_ = file.Close()
 		return nil, err
 	}
