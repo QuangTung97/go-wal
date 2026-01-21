@@ -1,5 +1,12 @@
 package wal
 
+import (
+	"encoding/binary"
+	"errors"
+	"hash/crc32"
+	"io"
+)
+
 // --------------------------------------------------------------------
 // Format of master page
 // version: 1 byte
@@ -8,14 +15,72 @@ package wal
 // checkpoint lsn: 8 bytes (little endian)
 // --------------------------------------------------------------------
 
+const (
+	masterPageChecksumOffset   = 1
+	masterPageLatestGenOffset  = masterPageChecksumOffset + 4
+	masterPageCheckpointOffset = masterPageLatestGenOffset + 8
+)
+
 type MasterPageVersion uint8
 
 const (
-	MasterPageVersionFirst MasterPageVersion = iota + 1
+	MasterPageFirstVersion MasterPageVersion = iota + 1
 )
 
 type MasterPage struct {
 	Version          MasterPageVersion
 	LatestGeneration PageGeneration
 	CheckpointLSN    LSN
+}
+
+func WriteMasterPage(w io.Writer, page *MasterPage) error {
+	var data [PageSize]byte
+
+	data[0] = byte(page.Version)
+	binary.LittleEndian.PutUint64(
+		data[masterPageLatestGenOffset:],
+		uint64(page.LatestGeneration),
+	)
+	binary.LittleEndian.PutUint64(
+		data[masterPageCheckpointOffset:],
+		uint64(page.CheckpointLSN),
+	)
+
+	// write checksum
+	crcSum := crc32.ChecksumIEEE(data[:])
+	binary.LittleEndian.PutUint32(
+		data[masterPageChecksumOffset:],
+		crcSum,
+	)
+
+	_, err := w.Write(data[:])
+	return err
+}
+
+func ReadMasterPage(r io.Reader, page *MasterPage) error {
+	var data [PageSize]byte
+
+	if _, err := io.ReadFull(r, data[:]); err != nil {
+		return err
+	}
+
+	crcSum := binary.LittleEndian.Uint32(data[masterPageChecksumOffset:])
+	var zeroSum [4]byte
+	copy(data[masterPageChecksumOffset:], zeroSum[:])
+
+	computedSum := crc32.ChecksumIEEE(data[:])
+	if computedSum != crcSum {
+		return errors.New("mismatch master page checksum")
+	}
+
+	latestGen := binary.LittleEndian.Uint64(data[masterPageLatestGenOffset:])
+	checkpoint := binary.LittleEndian.Uint64(data[masterPageCheckpointOffset:])
+
+	*page = MasterPage{
+		Version:          MasterPageVersion(data[0]),
+		LatestGeneration: PageGeneration(latestGen),
+		CheckpointLSN:    LSN(checkpoint),
+	}
+
+	return nil
 }
