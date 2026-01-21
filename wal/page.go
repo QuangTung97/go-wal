@@ -70,4 +70,5 @@ const (
 	flagsOffset          = checkSumOffset + 4
 	pageGenerationOffset = flagsOffset + 1
 	pageNumberOffset     = pageGenerationOffset + 8
+	pageHeaderSize       = pageNumberOffset + 8
 )
