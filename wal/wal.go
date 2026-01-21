@@ -1,7 +1,13 @@
 package wal
 
 type WAL struct {
-	nextOffset LogDataOffset
+	maxOffset LogDataOffset
+}
+
+func NewWAL() *WAL {
+	return &WAL{
+		maxOffset: DataSizePerPage - 1,
+	}
 }
 
 type PrepareEntryRequest struct {
@@ -10,7 +16,7 @@ type PrepareEntryRequest struct {
 	totalSize int64
 }
 
-func (r PrepareEntryRequest) GetLSN() LSN {
+func (r *PrepareEntryRequest) GetLSN() LSN {
 	return r.lsn
 }
 
