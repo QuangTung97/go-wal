@@ -32,6 +32,8 @@ func newWalTest(t *testing.T) *walTest {
 		panic(err)
 	}
 
+	t.Cleanup(w.wal.Shutdown)
+
 	return w
 }
 
@@ -57,4 +59,7 @@ func TestWAL__Init_And_Check_Master_Page(t *testing.T) {
 		LatestEpoch:   NewEpoch(0),
 		CheckpointLSN: 511,
 	}, masterPage)
+
+	// shutdown
+	w.wal.Shutdown()
 }
