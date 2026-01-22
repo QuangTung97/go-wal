@@ -14,7 +14,6 @@ import (
 // flags: 1 byte
 // page epoch: 4 bytes (little endian)
 // page number: 8 bytes (little endian)
-// latest offset: 2 bytes (little endian)
 // --------------------------------------------------------------------
 
 // --------------------------------------------------------------------
@@ -25,12 +24,11 @@ import (
 // --------------------------------------------------------------------
 
 const (
-	checkSumOffset          = 1
-	flagsOffset             = checkSumOffset + 4
-	pageEpochOffset         = flagsOffset + 1
-	pageNumberOffset        = pageEpochOffset + 4
-	latestEntryOffsetOffset = pageNumberOffset + 8
-	pageHeaderSize          = latestEntryOffsetOffset + 2
+	checkSumOffset   = 1
+	flagsOffset      = checkSumOffset + 4
+	pageEpochOffset  = flagsOffset + 1
+	pageNumberOffset = pageEpochOffset + 4
+	pageHeaderSize   = pageNumberOffset + 8
 )
 
 type PageVersion uint8
@@ -39,56 +37,58 @@ const (
 	FirstVersion PageVersion = iota + 1
 )
 
-type PageData []byte
-
-func InitPage(p PageData, epoch Epoch, num PageNum) {
-	p[0] = uint8(FirstVersion)
-	binary.LittleEndian.PutUint32(p[pageEpochOffset:], epoch.val)
-	binary.LittleEndian.PutUint64(p[pageNumberOffset:], uint64(num))
-	binary.LittleEndian.PutUint16(p[latestEntryOffsetOffset:], uint16(pageHeaderSize-1))
+type Page struct {
+	data          []byte // must have cap = len = 512
+	highestOffset uint16
 }
 
-func (p PageData) GetVersion() PageVersion {
-	return PageVersion(p[0])
+func InitPage(p *Page, epoch Epoch, num PageNum) {
+	p.highestOffset = pageHeaderSize - 1
+	p.data[0] = uint8(FirstVersion)
+	binary.LittleEndian.PutUint32(p.data[pageEpochOffset:], epoch.val)
+	binary.LittleEndian.PutUint64(p.data[pageNumberOffset:], uint64(num))
 }
 
-func (p PageData) GetEpoch() Epoch {
-	num := binary.LittleEndian.Uint32(p[pageEpochOffset:])
+func (p *Page) GetVersion() PageVersion {
+	return PageVersion(p.data[0])
+}
+
+func (p *Page) GetEpoch() Epoch {
+	num := binary.LittleEndian.Uint32(p.data[pageEpochOffset:])
 	return NewEpoch(num)
 }
 
-func (p PageData) GetPageNum() PageNum {
-	num := binary.LittleEndian.Uint64(p[pageNumberOffset:])
+func (p *Page) GetPageNum() PageNum {
+	num := binary.LittleEndian.Uint64(p.data[pageNumberOffset:])
 	return PageNum(num)
 }
 
-func (p PageData) GetLatestOffset() EntryOffset {
-	num := binary.LittleEndian.Uint16(p[latestEntryOffsetOffset:])
-	return EntryOffset(num)
-}
-
-func (p PageData) Write(writer io.Writer) error {
-	crcSum := crc32.ChecksumIEEE(p[:])
-	binary.LittleEndian.PutUint32(p[checkSumOffset:], crcSum)
-	_, err := writer.Write(p[:])
+func (p *Page) Write(writer io.Writer) error {
+	crcSum := crc32.ChecksumIEEE(p.data[:])
+	binary.LittleEndian.PutUint32(p.data[checkSumOffset:], crcSum)
+	_, err := writer.Write(p.data[:])
 	p.clearChecksum()
 	return err
 }
 
-func (p PageData) clearChecksum() {
-	// set crc sum to zero
-	var zeroSum [4]byte
-	copy(p[checkSumOffset:], zeroSum[:])
+func (p *Page) AddEntry(entry LogEntry) int {
+	return len(entry)
 }
 
-func ReadPage(p PageData, reader io.Reader) error {
-	if _, err := io.ReadFull(reader, p[:]); err != nil {
+func (p *Page) clearChecksum() {
+	// set crc sum to zero
+	var zeroSum [4]byte
+	copy(p.data[checkSumOffset:], zeroSum[:])
+}
+
+func ReadPage(p *Page, reader io.Reader) error {
+	if _, err := io.ReadFull(reader, p.data[:]); err != nil {
 		return err
 	}
 
-	crcSum := binary.LittleEndian.Uint32(p[checkSumOffset:])
+	crcSum := binary.LittleEndian.Uint32(p.data[checkSumOffset:])
 	p.clearChecksum()
-	computedSum := crc32.ChecksumIEEE(p[:])
+	computedSum := crc32.ChecksumIEEE(p.data[:])
 	if computedSum != crcSum {
 		return errors.New("mismatch page checksum")
 	}
@@ -103,3 +103,5 @@ const (
 	EntryTypeNone EntryType = iota
 	EntryTypeFull
 )
+
+type LogEntry []byte
