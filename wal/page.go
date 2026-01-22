@@ -2,6 +2,8 @@ package wal
 
 import (
 	"encoding/binary"
+	"errors"
+	"hash/crc32"
 	"io"
 )
 
@@ -66,6 +68,31 @@ func (p PageData) GetLatestOffset() EntryOffset {
 }
 
 func (p PageData) Write(writer io.Writer) error {
+	crcSum := crc32.ChecksumIEEE(p[:])
+	binary.LittleEndian.PutUint32(p[checkSumOffset:], crcSum)
+	_, err := writer.Write(p[:])
+	p.clearChecksum()
+	return err
+}
+
+func (p PageData) clearChecksum() {
+	// set crc sum to zero
+	var zeroSum [4]byte
+	copy(p[checkSumOffset:], zeroSum[:])
+}
+
+func ReadPage(p PageData, reader io.Reader) error {
+	if _, err := io.ReadFull(reader, p[:]); err != nil {
+		return err
+	}
+
+	crcSum := binary.LittleEndian.Uint32(p[checkSumOffset:])
+	p.clearChecksum()
+	computedSum := crc32.ChecksumIEEE(p[:])
+	if computedSum != crcSum {
+		return errors.New("mismatch page checksum")
+	}
+
 	return nil
 }
 

@@ -1,6 +1,8 @@
 package wal
 
 import (
+	"bytes"
+	"errors"
 	"testing"
 	"unsafe"
 
@@ -44,4 +46,27 @@ func TestInitPage(t *testing.T) {
 	assert.Equal(t, NewEpoch(21), p.GetEpoch())
 	assert.Equal(t, PageNum(12<<32+PageSize+31), p.GetPageNum())
 	assert.Equal(t, EntryOffset(pageHeaderSize-1), p.GetLatestOffset())
+}
+
+func TestReadWritePage(t *testing.T) {
+	page := newPageData()
+	InitPage(page, NewEpoch(21), 12<<32+PageSize+31)
+
+	// write
+	var buf bytes.Buffer
+	err := page.Write(&buf)
+	assert.Equal(t, nil, err)
+
+	// read
+	data := buf.Bytes()
+	newPage := newPageData()
+	err = ReadPage(newPage, bytes.NewReader(data))
+	assert.Equal(t, nil, err)
+	assert.Equal(t, FirstVersion, newPage.GetVersion())
+	assert.Equal(t, page, newPage)
+
+	// mismatch checksum
+	data[511] = 11
+	err = ReadPage(newPage, bytes.NewReader(data))
+	assert.Equal(t, errors.New("mismatch page checksum"), err)
 }
