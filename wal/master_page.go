@@ -3,6 +3,7 @@ package wal
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"hash/crc32"
 	"io"
 )
@@ -65,7 +66,11 @@ func ReadMasterPage(r io.Reader, page *MasterPage) error {
 		return err
 	}
 
-	// TODO check version
+	version := MasterPageVersion(data[0])
+	if version != MasterPageFirstVersion {
+		// TODO testing
+		return fmt.Errorf("invalid master page version: %d", version)
+	}
 
 	crcSum := binary.LittleEndian.Uint32(data[masterPageChecksumOffset:])
 	var zeroSum [4]byte

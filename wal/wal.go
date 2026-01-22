@@ -12,10 +12,15 @@ type WAL struct {
 	diskNumPage PageNum
 	memNumPage  PageNum
 
-	mut          sync.Mutex
-	logBuffer    []byte
-	writeErr     error
-	latestOffset LogDataOffset // => LSN => PageNum
+	mut       sync.Mutex
+	logBuffer []byte
+	writeErr  error
+
+	latestOffset LogDataOffset
+	writtenLsn   LSN
+
+	latestEpoch   Epoch
+	checkpointLsn LSN
 
 	wg       sync.WaitGroup
 	cond     *sync.Cond
@@ -34,8 +39,6 @@ func NewWAL(
 
 		diskNumPage: PageNum(fileSize / PageSize),
 		memNumPage:  PageNum(logBufferSize / PageSize),
-
-		latestOffset: DataSizePerPage - 1,
 	}
 
 	w.cond = sync.NewCond(&w.mut)
@@ -48,6 +51,12 @@ func NewWAL(
 	if err != nil {
 		return nil, err
 	}
+
+	w.latestOffset = DataSizePerPage - 1
+	w.writtenLsn = PageSize - 1
+	w.checkpointLsn = PageSize - 1
+
+	// TODO init first page in memory
 
 	// TODO previous log existed
 
@@ -79,57 +88,6 @@ func (w *WAL) Shutdown() {
 
 	w.cond.Signal()
 	w.wg.Wait()
-}
-
-func (w *WAL) createWalFileIfNotExists() (bool, error) {
-	existed, err := w.fs.Exists(w.filename)
-	if err != nil {
-		return false, err
-	}
-	if existed {
-		return true, nil
-	}
-
-	tempFileName := w.filename + ".tmp"
-	if err := w.createTemporaryWalFile(tempFileName); err != nil {
-		return false, err
-	}
-
-	if err := w.fs.Rename(tempFileName, w.filename); err != nil {
-		return false, err
-	}
-
-	// TODO fsync the parent dir
-
-	return false, nil
-}
-
-func (w *WAL) createTemporaryWalFile(tempFileName string) error {
-	writer, err := w.fs.CreateEmptyFile(tempFileName, int64(w.diskNumPage)*PageSize)
-	if err != nil {
-		return err
-	}
-
-	// setup closer
-	closer := filesys.NewIdempotentCloser(writer)
-	defer closer.CloseIgnoreError()
-
-	masterPage := &MasterPage{
-		Version:       MasterPageFirstVersion,
-		LatestEpoch:   NewEpoch(0),
-		CheckpointLSN: PageSize - 1,
-	}
-	if err := WriteMasterPage(writer, masterPage); err != nil {
-		return err
-	}
-
-	// Write to first page
-
-	// TODO write to remaining pages
-
-	// TODO fsync the tmp file
-
-	return closer.Close()
 }
 
 type NewEntryRequest struct {
@@ -166,32 +124,4 @@ func (w *WAL) NewEntry(dataSize int64) (NewEntryRequest, error) {
 
 func (w *WAL) NotifyWriter() {
 	w.cond.Signal()
-}
-
-func (w *WAL) runWriterInBackground() {
-	defer w.wg.Done()
-	for {
-		closed := w.runWriterInBackgroundPerIteration()
-		if closed {
-			return
-		}
-	}
-}
-
-func (w *WAL) runWriterInBackgroundPerIteration() bool {
-	w.mut.Lock()
-	defer w.mut.Unlock()
-
-	needWait := func() bool {
-		if w.isClosed {
-			return false
-		}
-		return true
-	}
-
-	for needWait() {
-		w.cond.Wait()
-	}
-
-	return w.isClosed
 }

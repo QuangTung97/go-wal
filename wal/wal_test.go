@@ -60,6 +60,13 @@ func TestWAL__Init_And_Check_Master_Page(t *testing.T) {
 		CheckpointLSN: 511,
 	}, masterPage)
 
+	// check init data
+	assert.Equal(t, PageSize*2, len(w.wal.logBuffer))
+	assert.Equal(t, LogDataOffset(DataSizePerPage-1), w.wal.latestOffset)
+	assert.Equal(t, LSN(PageSize-1), w.wal.writtenLsn)
+	assert.Equal(t, NewEpoch(0), w.wal.latestEpoch)
+	assert.Equal(t, LSN(PageSize-1), w.wal.checkpointLsn)
+
 	// shutdown
 	w.wal.Shutdown()
 }
