@@ -19,12 +19,12 @@ func TestEntryType(t *testing.T) {
 func TestPageOffsets(t *testing.T) {
 	assert.Equal(t, 1, checkSumOffset)
 	assert.Equal(t, 5, flagsOffset)
-	assert.Equal(t, 6, pageGenerationOffset)
-	assert.Equal(t, 14, pageNumberOffset)
-	assert.Equal(t, 22, pageHeaderSize)
+	assert.Equal(t, 6, pageEpochOffset)
+	assert.Equal(t, 10, pageNumberOffset)
+	assert.Equal(t, 18, pageHeaderSize)
 
 	assert.Equal(t, pageHeaderSize-pageNumberOffset, int(unsafe.Sizeof(PageNum(0))))
-	assert.Equal(t, pageNumberOffset-pageGenerationOffset, int(unsafe.Sizeof(PageGeneration(0))))
+	assert.Equal(t, pageNumberOffset-pageEpochOffset, int(unsafe.Sizeof(NewEpoch(0))))
 	assert.Equal(t, unsafe.Sizeof(PageNum(0)), unsafe.Sizeof(LSN(0)))
 	assert.Equal(t, unsafe.Sizeof(LSN(0)), unsafe.Sizeof(LogDataOffset(0)))
 }

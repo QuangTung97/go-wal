@@ -32,7 +32,22 @@ func createWalFileIfNotExists(fs filesys.FileSystem, filename string, fileSize i
 		return nil
 	}
 
-	writer, err := fs.CreateEmptyFile(filename, fileSize+PageSize)
+	tempFileName := filename + ".tmp"
+	if err := createTemporaryWalFile(fs, tempFileName, fileSize); err != nil {
+		return err
+	}
+
+	if err := fs.Rename(tempFileName, filename); err != nil {
+		return err
+	}
+
+	// TODO fsync the parent dir
+
+	return nil
+}
+
+func createTemporaryWalFile(fs filesys.FileSystem, tempFileName string, fileSize int64) error {
+	writer, err := fs.CreateEmptyFile(tempFileName, fileSize+PageSize)
 	if err != nil {
 		return err
 	}
@@ -41,15 +56,22 @@ func createWalFileIfNotExists(fs filesys.FileSystem, filename string, fileSize i
 	closer := filesys.NewIdempotentCloser(writer)
 	defer closer.CloseIgnoreError()
 
-	// TODO write to file
-
-	if err := closer.Close(); err != nil {
+	masterPage := &MasterPage{
+		Version:       MasterPageFirstVersion,
+		LatestEpoch:   NewEpoch(0),
+		CheckpointLSN: PageSize - 1,
+	}
+	if err := WriteMasterPage(writer, masterPage); err != nil {
 		return err
 	}
 
-	// TODO rename
+	// Write to first page
 
-	return nil
+	// TODO write to other pages
+
+	// TODO fsync the tmp file
+
+	return closer.Close()
 }
 
 type PrepareEntryRequest struct {

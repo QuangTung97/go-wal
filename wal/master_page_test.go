@@ -12,13 +12,19 @@ func TestMasterPageVersion(t *testing.T) {
 	assert.Equal(t, MasterPageVersion(1), MasterPageFirstVersion)
 }
 
+func TestMasterPageHeaderOffset(t *testing.T) {
+	assert.Equal(t, 1, masterPageChecksumOffset)
+	assert.Equal(t, 5, masterPageLatestEpochOffset)
+	assert.Equal(t, 9, masterPageCheckpointOffset)
+}
+
 func TestReadMasterPage__Write_And_Read(t *testing.T) {
 	var writer bytes.Buffer
 
 	page := MasterPage{
-		Version:          MasterPageFirstVersion,
-		LatestGeneration: 31,
-		CheckpointLSN:    PageSize*3 + 123,
+		Version:       MasterPageFirstVersion,
+		LatestEpoch:   NewEpoch(31),
+		CheckpointLSN: PageSize*3 + 123,
 	}
 
 	// write

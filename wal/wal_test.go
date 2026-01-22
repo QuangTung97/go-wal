@@ -1,6 +1,7 @@
 package wal
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -40,4 +41,19 @@ func TestWAL__Normal(t *testing.T) {
 	fileStat, err := os.Stat(w.filename)
 	require.Equal(t, nil, err)
 	assert.Equal(t, int64(512*5), fileStat.Size())
+
+	// check file content
+	allData, err := os.ReadFile(w.filename)
+	require.Equal(t, nil, err)
+	reader := bytes.NewReader(allData)
+
+	// check master page
+	var masterPage MasterPage
+	err = ReadMasterPage(reader, &masterPage)
+	require.Equal(t, nil, err)
+	require.Equal(t, MasterPage{
+		Version:       1,
+		LatestEpoch:   NewEpoch(0),
+		CheckpointLSN: 511,
+	}, masterPage)
 }

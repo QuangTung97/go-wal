@@ -24,4 +24,10 @@ func (o LogDataOffset) ToLSN() LSN {
 
 type PageNum uint64
 
-type PageGeneration uint64
+type Epoch struct {
+	val uint32
+}
+
+func NewEpoch(num uint32) Epoch {
+	return Epoch{val: num}
+}

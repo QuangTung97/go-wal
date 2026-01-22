@@ -1,8 +1,6 @@
 package wal
 
-import (
-	"fmt"
-)
+import "io"
 
 // --------------------------------------------------------------------
 // Format of a page header
@@ -29,6 +27,12 @@ const (
 	FirstVersion PageVersion = iota + 1
 )
 
+type PageData []byte
+
+func (p PageData) Write(writer io.Writer) error {
+	return nil
+}
+
 // EntryType is type of log entry
 type EntryType uint8
 
@@ -37,38 +41,10 @@ const (
 	EntryTypeFull
 )
 
-type Page struct {
-	data []byte
-
-	generation PageGeneration
-	pageNum    PageNum
-
-	lastOffset int
-}
-
-func InitPage(page *Page, gen PageGeneration, num PageNum) {
-	// TODO impl
-}
-
-func ParsePage(page *Page, data []byte) error {
-	if len(data) != PageSize {
-		return fmt.Errorf("invalid page size: %d", len(data))
-	}
-	return nil
-}
-
-func (p *Page) WriteTo(data []byte) {
-	// TODO impl
-}
-
-func (p *Page) AddEntry(data []byte) {
-
-}
-
 const (
-	checkSumOffset       = 1
-	flagsOffset          = checkSumOffset + 4
-	pageGenerationOffset = flagsOffset + 1
-	pageNumberOffset     = pageGenerationOffset + 8
-	pageHeaderSize       = pageNumberOffset + 8
+	checkSumOffset   = 1
+	flagsOffset      = checkSumOffset + 4
+	pageEpochOffset  = flagsOffset + 1
+	pageNumberOffset = pageEpochOffset + 4
+	pageHeaderSize   = pageNumberOffset + 8
 )

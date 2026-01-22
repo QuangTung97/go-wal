@@ -16,9 +16,9 @@ import (
 // --------------------------------------------------------------------
 
 const (
-	masterPageChecksumOffset   = 1
-	masterPageLatestGenOffset  = masterPageChecksumOffset + 4
-	masterPageCheckpointOffset = masterPageLatestGenOffset + 8
+	masterPageChecksumOffset    = 1
+	masterPageLatestEpochOffset = masterPageChecksumOffset + 4
+	masterPageCheckpointOffset  = masterPageLatestEpochOffset + 4
 )
 
 type MasterPageVersion uint8
@@ -28,9 +28,9 @@ const (
 )
 
 type MasterPage struct {
-	Version          MasterPageVersion
-	LatestGeneration PageGeneration
-	CheckpointLSN    LSN
+	Version       MasterPageVersion
+	LatestEpoch   Epoch
+	CheckpointLSN LSN
 }
 
 func WriteMasterPage(w io.Writer, page *MasterPage) error {
@@ -38,8 +38,8 @@ func WriteMasterPage(w io.Writer, page *MasterPage) error {
 
 	data[0] = byte(page.Version)
 	binary.LittleEndian.PutUint64(
-		data[masterPageLatestGenOffset:],
-		uint64(page.LatestGeneration),
+		data[masterPageLatestEpochOffset:],
+		uint64(page.LatestEpoch.val),
 	)
 	binary.LittleEndian.PutUint64(
 		data[masterPageCheckpointOffset:],
@@ -73,13 +73,13 @@ func ReadMasterPage(r io.Reader, page *MasterPage) error {
 		return errors.New("mismatch master page checksum")
 	}
 
-	latestGen := binary.LittleEndian.Uint64(data[masterPageLatestGenOffset:])
+	latestGen := binary.LittleEndian.Uint32(data[masterPageLatestEpochOffset:])
 	checkpoint := binary.LittleEndian.Uint64(data[masterPageCheckpointOffset:])
 
 	*page = MasterPage{
-		Version:          MasterPageVersion(data[0]),
-		LatestGeneration: PageGeneration(latestGen),
-		CheckpointLSN:    LSN(checkpoint),
+		Version:       MasterPageVersion(data[0]),
+		LatestEpoch:   NewEpoch(latestGen),
+		CheckpointLSN: LSN(checkpoint),
 	}
 
 	return nil
