@@ -38,12 +38,10 @@ const (
 )
 
 type Page struct {
-	data          []byte // must have cap = len = 512
-	highestOffset uint16
+	data []byte // must have cap = len = 512
 }
 
 func InitPage(p *Page, epoch Epoch, num PageNum) {
-	p.highestOffset = pageHeaderSize - 1
 	p.data[0] = uint8(FirstVersion)
 	binary.LittleEndian.PutUint32(p.data[pageEpochOffset:], epoch.val)
 	binary.LittleEndian.PutUint64(p.data[pageNumberOffset:], uint64(num))
@@ -69,10 +67,6 @@ func (p *Page) Write(writer io.Writer) error {
 	_, err := writer.Write(p.data[:])
 	p.clearChecksum()
 	return err
-}
-
-func (p *Page) AddEntry(entry LogEntry) int {
-	return len(entry)
 }
 
 func (p *Page) clearChecksum() {

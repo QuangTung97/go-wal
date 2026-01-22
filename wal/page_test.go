@@ -69,10 +69,3 @@ func TestReadWritePage(t *testing.T) {
 	err = ReadPage(newPage, bytes.NewReader(data))
 	assert.Equal(t, errors.New("mismatch page checksum"), err)
 }
-
-func TestPage__Add_Entry(t *testing.T) {
-	p := newPageData()
-	InitPage(p, NewEpoch(21), 12<<32+31)
-
-	// TODO
-}

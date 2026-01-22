@@ -25,7 +25,9 @@ func newWalTest(t *testing.T) *walTest {
 	fs := filesys.NewFileSystem()
 
 	var err error
-	w.wal, err = NewWAL(fs, w.filename, PageSize*4)
+	// 2 pages in mem
+	// 4 pages on disk
+	w.wal, err = NewWAL(fs, w.filename, PageSize*5, PageSize*2)
 	if err != nil {
 		panic(err)
 	}
@@ -33,9 +35,8 @@ func newWalTest(t *testing.T) *walTest {
 	return w
 }
 
-func TestWAL__Normal(t *testing.T) {
+func TestWAL__Init_And_Check_Master_Page(t *testing.T) {
 	w := newWalTest(t)
-	assert.Equal(t, LSN(PageSize-1), w.wal.GetLatestLSN())
 
 	// check file size
 	fileStat, err := os.Stat(w.filename)
