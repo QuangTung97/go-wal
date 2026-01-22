@@ -37,11 +37,15 @@ func (w *WAL) createTemporaryWalFile(tempFileName string) error {
 	closer := filesys.NewIdempotentCloser(writer)
 	defer closer.CloseIgnoreError()
 
+	w.latestEpoch = NewEpoch(0)
+	w.checkpointLsn = PageSize - 1
+
 	masterPage := &MasterPage{
 		Version:       MasterPageFirstVersion,
-		LatestEpoch:   NewEpoch(0),
-		CheckpointLSN: PageSize - 1,
+		LatestEpoch:   w.latestEpoch,
+		CheckpointLSN: w.checkpointLsn,
 	}
+
 	if err := WriteMasterPage(writer, masterPage); err != nil {
 		return err
 	}

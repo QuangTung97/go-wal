@@ -14,6 +14,13 @@ func (n LSN) ToPageNum() PageNum {
 	return PageNum(uint64(n)&PageNumMask) >> PageSizeLog
 }
 
+func (n LSN) ToOffset() LogDataOffset {
+	pageNum := n.ToPageNum()
+	startLSN := LSN(pageNum << PageSizeLog)
+	index := LogDataOffset(n - startLSN)
+	return LogDataOffset(pageNum)*DataSizePerPage + index - pageHeaderSize
+}
+
 type LogDataOffset uint64
 
 func (o LogDataOffset) ToLSN() LSN {
@@ -30,4 +37,8 @@ type Epoch struct {
 
 func NewEpoch(num uint32) Epoch {
 	return Epoch{val: num}
+}
+
+func (e *Epoch) Inc() {
+	e.val++
 }

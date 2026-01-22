@@ -53,18 +53,23 @@ func NewWAL(
 	}
 
 	w.latestOffset = DataSizePerPage - 1
-	w.writtenLsn = PageSize - 1
-	w.checkpointLsn = PageSize - 1
+	w.writtenLsn = w.checkpointLsn
 
-	// TODO init first page in memory
+	firstPage := w.getInMemPage(w.checkpointLsn.ToPageNum())
+	InitPage(&firstPage, NewEpoch(0), w.checkpointLsn.ToPageNum())
 
 	// TODO previous log existed
 
+	return w, nil
+}
+
+func (w *WAL) FinishRecover() {
+	w.latestEpoch.Inc()
+
+	// TODO write the new latest epoch
+
 	w.wg.Add(1)
 	go w.runWriterInBackground()
-	// TODO run goroutine
-
-	return w, nil
 }
 
 func (w *WAL) Lock() {
@@ -104,7 +109,7 @@ func (r *NewEntryRequest) Finish() {
 }
 
 func (r *NewEntryRequest) GetEndLSN() LSN {
-	endOffset := r.fromOffset + LogDataOffset(r.dataSize)
+	endOffset := r.fromOffset + LogDataOffset(r.dataSize) - 1
 	return endOffset.ToLSN()
 }
 
@@ -114,7 +119,15 @@ func (w *WAL) NewEntry(dataSize int64) (NewEntryRequest, error) {
 	// TODO how to deal with WAL writer error?
 
 	from := w.latestOffset + 1
+	oldPageNum := w.latestOffset.ToLSN().ToPageNum()
+
 	w.latestOffset += LogDataOffset(dataSize)
+	newPageNum := w.latestOffset.ToLSN().ToPageNum()
+
+	for num := oldPageNum + 1; num <= newPageNum; num++ {
+		page := w.getInMemPage(num)
+		InitPage(&page, w.latestEpoch, num)
+	}
 
 	return NewEntryRequest{
 		fromOffset: from,
@@ -124,4 +137,11 @@ func (w *WAL) NewEntry(dataSize int64) (NewEntryRequest, error) {
 
 func (w *WAL) NotifyWriter() {
 	w.cond.Signal()
+}
+
+func (w *WAL) getInMemPage(num PageNum) Page {
+	offset := num % w.memNumPage
+	return Page{
+		data: w.logBuffer[offset*PageSize : (offset+1)*PageSize],
+	}
 }

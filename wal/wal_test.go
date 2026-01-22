@@ -67,6 +67,30 @@ func TestWAL__Init_And_Check_Master_Page(t *testing.T) {
 	assert.Equal(t, NewEpoch(0), w.wal.latestEpoch)
 	assert.Equal(t, LSN(PageSize-1), w.wal.checkpointLsn)
 
+	// get first page
+	firstPage := w.wal.getInMemPage(0)
+	assert.Equal(t, FirstVersion, firstPage.GetVersion())
+	assert.Equal(t, NewEpoch(0), firstPage.GetEpoch())
+	assert.Equal(t, PageNum(0), firstPage.GetPageNum())
+
+	w.wal.FinishRecover()
+
 	// shutdown
 	w.wal.Shutdown()
+}
+
+func TestWAL__Add_Entry__Check_In_Memory(t *testing.T) {
+	w := newWalTest(t)
+
+	w.wal.FinishRecover()
+
+	req, err := w.wal.NewEntry(7)
+	require.Equal(t, nil, err)
+	assert.Equal(t, LSN(PageSize+pageHeaderSize+7-1), req.GetEndLSN())
+
+	// check second page
+	secondPage := w.wal.getInMemPage(1)
+	assert.Equal(t, FirstVersion, secondPage.GetVersion())
+	assert.Equal(t, NewEpoch(1), secondPage.GetEpoch())
+	assert.Equal(t, PageNum(1), secondPage.GetPageNum())
 }

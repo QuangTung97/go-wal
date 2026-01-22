@@ -61,6 +61,8 @@ func (p *Page) GetPageNum() PageNum {
 	return PageNum(num)
 }
 
+// TODO add flags
+
 func (p *Page) Write(writer io.Writer) error {
 	crcSum := crc32.ChecksumIEEE(p.data[:])
 	binary.LittleEndian.PutUint32(p.data[checkSumOffset:], crcSum)
