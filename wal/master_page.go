@@ -37,6 +37,7 @@ func WriteMasterPage(w io.Writer, page *MasterPage) error {
 	var data [PageSize]byte
 
 	data[0] = byte(page.Version)
+
 	binary.LittleEndian.PutUint64(
 		data[masterPageLatestEpochOffset:],
 		uint64(page.LatestEpoch.val),
@@ -63,6 +64,8 @@ func ReadMasterPage(r io.Reader, page *MasterPage) error {
 	if _, err := io.ReadFull(r, data[:]); err != nil {
 		return err
 	}
+
+	// TODO check version
 
 	crcSum := binary.LittleEndian.Uint32(data[masterPageChecksumOffset:])
 	var zeroSum [4]byte

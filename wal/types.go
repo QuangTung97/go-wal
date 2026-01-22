@@ -31,3 +31,5 @@ type Epoch struct {
 func NewEpoch(num uint32) Epoch {
 	return Epoch{val: num}
 }
+
+type EntryOffset uint16
