@@ -27,20 +27,26 @@ const (
 	EntryTypeLast
 )
 
-func WriteLogEntry(pageData []byte, entryType EntryType, data []byte) error {
+func WriteLogEntry(pageData []byte, entryType EntryType, data []byte) int64 {
 	pageData[0] = byte(entryType)
 	binary.LittleEndian.PutUint16(
 		pageData[logEntryDataLengthOffset:logEntryDataOffset],
 		uint16(len(data)),
 	)
 	copy(pageData[logEntryDataOffset:], data)
-	return nil
+	return logEntryDataOffset + int64(len(data))
 }
 
-func ReadLogEntry(pageData []byte) (EntryType, []byte, error) {
+func ReadLogEntry(pageData []byte) (EntryType, []byte, int64) {
 	entryType := EntryType(pageData[0])
+	if entryType == EntryTypeNone {
+		return EntryTypeNone, nil, 1
+	}
+
 	dataLen := binary.LittleEndian.Uint16(
 		pageData[logEntryDataLengthOffset:logEntryDataOffset],
 	)
-	return entryType, pageData[logEntryDataOffset : logEntryDataOffset+dataLen], nil
+
+	// TODO validate entry
+	return entryType, pageData[logEntryDataOffset : logEntryDataOffset+dataLen], logEntryDataOffset + int64(dataLen)
 }

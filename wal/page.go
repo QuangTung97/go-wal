@@ -34,7 +34,12 @@ type Page struct {
 	data []byte // must have cap = len = 512
 }
 
+var pageWithZeros [PageSize]byte
+
 func InitPage(p *Page, epoch Epoch, num PageNum) {
+	// clear page
+	copy(p.data[:], pageWithZeros[:])
+
 	p.data[0] = uint8(FirstVersion)
 	binary.LittleEndian.PutUint32(p.data[pageEpochOffset:], epoch.val)
 	binary.LittleEndian.PutUint64(p.data[pageNumberOffset:], uint64(num))
@@ -85,4 +90,26 @@ func ReadPage(p *Page, reader io.Reader) error {
 	return nil
 }
 
-type LogEntry []byte
+type pageIterator struct {
+	remainBytes []byte
+	entryType   EntryType
+	entryData   []byte
+}
+
+func (p *Page) newIterator() pageIterator {
+	return pageIterator{
+		remainBytes: p.data[pageHeaderSize:],
+	}
+}
+
+func (i *pageIterator) next() bool {
+	if len(i.remainBytes) == 0 {
+		return false
+	}
+
+	var consumed int64
+	i.entryType, i.entryData, consumed = ReadLogEntry(i.remainBytes)
+	i.remainBytes = i.remainBytes[consumed:]
+
+	return true
+}

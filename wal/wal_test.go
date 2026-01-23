@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,12 +13,16 @@ import (
 	"github.com/QuangTung97/go-wal/wal/filesys"
 )
 
+func joinStrings(list ...string) string {
+	return strings.Join(list, "")
+}
+
 type walTest struct {
 	filename string
 	wal      *WAL
 }
 
-func newWalTest(t *testing.T) *walTest {
+func newWalTest(t *testing.T, pageOnDisk int64, pageOnMem int64) *walTest {
 	w := &walTest{}
 
 	tempDir := t.TempDir()
@@ -27,7 +32,7 @@ func newWalTest(t *testing.T) *walTest {
 	var err error
 	// 2 pages in mem
 	// 4 pages on disk
-	w.wal, err = NewWAL(fs, w.filename, PageSize*5, PageSize*2)
+	w.wal, err = NewWAL(fs, w.filename, PageSize*pageOnDisk, PageSize*pageOnMem)
 	if err != nil {
 		panic(err)
 	}
@@ -38,7 +43,7 @@ func newWalTest(t *testing.T) *walTest {
 }
 
 func TestWAL__Init_And_Check_Master_Page(t *testing.T) {
-	w := newWalTest(t)
+	w := newWalTest(t, 5, 2)
 
 	// check file size
 	fileStat, err := os.Stat(w.filename)
@@ -79,19 +84,102 @@ func TestWAL__Init_And_Check_Master_Page(t *testing.T) {
 	w.wal.Shutdown()
 }
 
+func (w *walTest) addEntry(input string) {
+	req, err := w.wal.NewEntry(int64(len(input)))
+	if err != nil {
+		panic(err)
+	}
+	req.Write([]byte(input))
+	req.Finish()
+}
+
 func TestWAL__Add_Entry__Check_In_Memory(t *testing.T) {
-	w := newWalTest(t)
+	w := newWalTest(t, 100, 20)
 
 	w.wal.FinishRecover()
-
-	req, err := w.wal.NewEntry(7)
-	require.Equal(t, nil, err)
-
-	req.Write([]byte("test 01"))
+	w.addEntry("test 01")
 
 	// check second page
 	secondPage := w.wal.getInMemPage(1)
 	assert.Equal(t, FirstVersion, secondPage.GetVersion())
 	assert.Equal(t, NewEpoch(1), secondPage.GetEpoch())
 	assert.Equal(t, PageNum(1), secondPage.GetPageNum())
+
+	it := secondPage.newIterator()
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeFull, it.entryType)
+	assert.Equal(t, "test 01", string(it.entryData))
+
+	// check third page, not yet init
+	page3 := w.wal.getInMemPage(2)
+	assert.Equal(t, PageVersion(0), page3.GetVersion())
+	assert.Equal(t, NewEpoch(0), page3.GetEpoch())
+	assert.Equal(t, PageNum(0), page3.GetPageNum())
+}
+
+func TestWAL__Add_Big_Entry__Check_In_Memory(t *testing.T) {
+	w := newWalTest(t, 100, 20)
+
+	w.wal.FinishRecover()
+	w.addEntry("input01") // add simple entry
+
+	inputStr := joinStrings(
+		strings.Repeat("A", 200),
+		strings.Repeat("B", 300),
+		strings.Repeat("C", 500),
+	)
+	w.addEntry(inputStr) // add big entry
+
+	// ----------------------------
+	// check second page
+	// ----------------------------
+	page2 := w.wal.getInMemPage(1)
+	assert.Equal(t, FirstVersion, page2.GetVersion())
+	assert.Equal(t, NewEpoch(1), page2.GetEpoch())
+	assert.Equal(t, PageNum(1), page2.GetPageNum())
+
+	// check first entry
+	it := page2.newIterator()
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeFull, it.entryType)
+	assert.Equal(t, "input01", string(it.entryData))
+
+	// next entry
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeFirst, it.entryType)
+	assert.Equal(t, strings.Repeat("A", 200)+strings.Repeat("B", 281), string(it.entryData))
+
+	// no next
+	assert.Equal(t, false, it.next())
+
+	// ----------------------------
+	// check third page
+	// ----------------------------
+	page3 := w.wal.getInMemPage(2)
+	assert.Equal(t, FirstVersion, page3.GetVersion())
+	assert.Equal(t, NewEpoch(1), page3.GetEpoch())
+	assert.Equal(t, PageNum(2), page3.GetPageNum())
+
+	// check third entry
+	it = page3.newIterator()
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeMiddle, it.entryType)
+	assert.Equal(t, strings.Repeat("B", 19)+strings.Repeat("C", 472), string(it.entryData))
+
+	// no next
+	assert.Equal(t, false, it.next())
+
+	// ----------------------------
+	// check forth page
+	// ----------------------------
+	page4 := w.wal.getInMemPage(3)
+	assert.Equal(t, FirstVersion, page4.GetVersion())
+	assert.Equal(t, NewEpoch(1), page4.GetEpoch())
+	assert.Equal(t, PageNum(3), page4.GetPageNum())
+
+	// check forth entry
+	it = page4.newIterator()
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeLast, it.entryType)
+	assert.Equal(t, strings.Repeat("C", 28), string(it.entryData))
 }

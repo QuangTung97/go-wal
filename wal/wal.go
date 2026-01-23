@@ -96,20 +96,50 @@ func (w *WAL) Shutdown() {
 }
 
 type NewEntryRequest struct {
-	wal        *WAL
-	remainSize int64
+	wal *WAL
 }
 
-func (r *NewEntryRequest) Write(data []byte) {
+func (r *NewEntryRequest) Write(inputData []byte) {
 	prevPageNum := r.wal.latestOffset.ToPageNum()
+	prevType := EntryTypeFull
 
-	nextLSN := (r.wal.latestOffset + 1).ToLSN()
-	// pageEndLSN := (nextLSN & PageNumMask) + (PageSize - 1)
+	for {
+		nextLSN := (r.wal.latestOffset + 1).ToLSN()
+		// pageEndLSN := (nextLSN & PageNumMask) + (PageSize - 1)
 
-	nextPageNum := nextLSN.ToPageNum()
-	if nextPageNum > prevPageNum {
+		nextPageNum := nextLSN.ToPageNum()
+		if nextPageNum > prevPageNum {
+			page := r.wal.getInMemPage(nextPageNum)
+			InitPage(&page, r.wal.latestEpoch, nextPageNum)
+			prevPageNum = nextPageNum
+		}
+
+		// TODO check only has 3 bytes remaining
+
 		page := r.wal.getInMemPage(nextPageNum)
-		InitPage(&page, r.wal.latestEpoch, nextPageNum)
+		offset := nextLSN.WithinPage()
+		remainLen := PageSize - offset - logEntryDataOffset
+
+		if remainLen >= uint64(len(inputData)) {
+			entryType := EntryTypeFull
+			if prevType != EntryTypeFull {
+				entryType = EntryTypeLast
+			}
+
+			written := WriteLogEntry(page.data[offset:], entryType, inputData)
+			r.wal.latestOffset += LogDataOffset(written)
+			return // break loop
+		}
+
+		entryType := EntryTypeFirst
+		if prevType == EntryTypeFirst {
+			entryType = EntryTypeMiddle
+		}
+
+		written := WriteLogEntry(page.data[offset:], entryType, inputData[:remainLen])
+		inputData = inputData[remainLen:]
+		r.wal.latestOffset += LogDataOffset(written)
+		prevType = entryType
 	}
 }
 
@@ -122,8 +152,7 @@ func (w *WAL) NewEntry(dataSize int64) (NewEntryRequest, error) {
 	// TODO how to deal with WAL writer error?
 
 	return NewEntryRequest{
-		wal:        w,
-		remainSize: dataSize,
+		wal: w,
 	}, nil
 }
 

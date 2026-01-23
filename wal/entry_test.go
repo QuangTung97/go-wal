@@ -16,11 +16,20 @@ func TestEntryType(t *testing.T) {
 
 func TestLogEntry__Read_Write(t *testing.T) {
 	page := newTestPage()
-	err := WriteLogEntry(page.data, EntryTypeFull, []byte("test data 01"))
-	assert.Equal(t, nil, err)
 
-	entryType, data, err := ReadLogEntry(page.data)
-	assert.Equal(t, nil, err)
+	n := WriteLogEntry(page.data, EntryTypeFull, []byte("test data 01"))
+	assert.Equal(t, int64(15), n)
+
+	entryType, data, n := ReadLogEntry(page.data)
+	assert.Equal(t, int64(15), n)
 	assert.Equal(t, EntryTypeFull, entryType)
 	assert.Equal(t, "test data 01", string(data))
+	assert.Equal(t, 12, len(data))
+
+	// read null entry
+	page.data = page.data[n:]
+	entryType, data, n = ReadLogEntry(page.data)
+	assert.Equal(t, int64(1), n)
+	assert.Equal(t, EntryTypeNone, entryType)
+	assert.Equal(t, "", string(data))
 }

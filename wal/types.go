@@ -1,9 +1,10 @@
 package wal
 
 const (
-	PageSizeLog = 9
-	PageSize    = 1 << PageSizeLog
-	PageNumMask = ^LSN(PageSize - 1)
+	PageSizeLog    = 9
+	PageSize       = 1 << PageSizeLog
+	WithinPageMask = PageSize - 1
+	PageNumMask    = ^LSN(WithinPageMask)
 
 	DataSizePerPage = PageSize - pageHeaderSize
 )
@@ -19,6 +20,10 @@ func (n LSN) ToOffset() LogDataOffset {
 	startLSN := LSN(pageNum << PageSizeLog)
 	index := LogDataOffset(n - startLSN)
 	return LogDataOffset(pageNum)*DataSizePerPage + index - pageHeaderSize
+}
+
+func (n LSN) WithinPage() uint64 {
+	return uint64(n) & WithinPageMask
 }
 
 type LogDataOffset uint64
