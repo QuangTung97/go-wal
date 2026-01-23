@@ -114,11 +114,14 @@ func (r *NewEntryRequest) Write(inputData []byte) {
 			prevPageNum = nextPageNum
 		}
 
-		// TODO check only has 3 bytes remaining
-
 		page := r.wal.getInMemPage(nextPageNum)
 		offset := nextLSN.WithinPage()
 		remainLen := PageSize - offset - logEntryDataOffset
+
+		if remainLen <= 0 {
+			r.wal.latestOffset += LogDataOffset(PageSize - offset)
+			continue
+		}
 
 		if remainLen >= uint64(len(inputData)) {
 			entryType := EntryTypeFull

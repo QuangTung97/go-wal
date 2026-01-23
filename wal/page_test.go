@@ -13,6 +13,10 @@ func TestPageVersion(t *testing.T) {
 	assert.Equal(t, PageVersion(1), FirstVersion)
 }
 
+func TestZeroPage(t *testing.T) {
+	assert.Equal(t, 512, len(pageWithZeros[:]))
+}
+
 func TestPageOffsets(t *testing.T) {
 	assert.Equal(t, 1, checkSumOffset)
 	assert.Equal(t, 5, flagsOffset)

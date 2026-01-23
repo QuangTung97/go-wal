@@ -183,3 +183,110 @@ func TestWAL__Add_Big_Entry__Check_In_Memory(t *testing.T) {
 	assert.Equal(t, EntryTypeLast, it.entryType)
 	assert.Equal(t, strings.Repeat("C", 28), string(it.entryData))
 }
+
+func TestWAL__Add_Entry__Over_Max_Page(t *testing.T) {
+	w := newWalTest(t, 100, 20)
+
+	w.wal.FinishRecover()
+	w.addEntry("input01") // add simple entry
+
+	inputStr := joinStrings(
+		strings.Repeat("A", 200),
+		strings.Repeat("B", 281-3),
+	)
+	w.addEntry(inputStr) // add big entry
+
+	w.addEntry("y") // add single byte
+
+	// ----------------------------
+	// check second page
+	// ----------------------------
+	page2 := w.wal.getInMemPage(1)
+	assert.Equal(t, FirstVersion, page2.GetVersion())
+	assert.Equal(t, NewEpoch(1), page2.GetEpoch())
+	assert.Equal(t, PageNum(1), page2.GetPageNum())
+
+	// check first entry
+	it := page2.newIterator()
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeFull, it.entryType)
+	assert.Equal(t, "input01", string(it.entryData))
+
+	// next entry
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeFull, it.entryType)
+	assert.Equal(t, strings.Repeat("A", 200)+strings.Repeat("B", 281-3), string(it.entryData))
+
+	// none entry
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeNone, it.entryType)
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeNone, it.entryType)
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeNone, it.entryType)
+	assert.Equal(t, false, it.next()) // end here
+
+	// ----------------------------
+	// check third page
+	// ----------------------------
+	page3 := w.wal.getInMemPage(2)
+	assert.Equal(t, FirstVersion, page3.GetVersion())
+	assert.Equal(t, NewEpoch(1), page3.GetEpoch())
+	assert.Equal(t, PageNum(2), page3.GetPageNum())
+
+	// check first entry of third page
+	it = page3.newIterator()
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeFull, it.entryType)
+	assert.Equal(t, "y", string(it.entryData))
+}
+
+func TestWAL__Add_3_Entry__Fit_Page(t *testing.T) {
+	w := newWalTest(t, 100, 20)
+
+	w.wal.FinishRecover()
+	w.addEntry("input01") // add simple entry
+
+	inputStr := joinStrings(
+		strings.Repeat("A", 200),
+		strings.Repeat("B", 281-4),
+	)
+	w.addEntry(inputStr) // add big entry
+
+	w.addEntry("y") // add single byte
+
+	// ----------------------------
+	// check second page
+	// ----------------------------
+	page2 := w.wal.getInMemPage(1)
+	assert.Equal(t, FirstVersion, page2.GetVersion())
+	assert.Equal(t, NewEpoch(1), page2.GetEpoch())
+	assert.Equal(t, PageNum(1), page2.GetPageNum())
+
+	// check first entry
+	it := page2.newIterator()
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeFull, it.entryType)
+	assert.Equal(t, "input01", string(it.entryData))
+
+	// next entry
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeFull, it.entryType)
+	assert.Equal(t, strings.Repeat("A", 200)+strings.Repeat("B", 281-4), string(it.entryData))
+
+	// next entry
+	assert.Equal(t, true, it.next())
+	assert.Equal(t, EntryTypeFull, it.entryType)
+	assert.Equal(t, "y", string(it.entryData))
+
+	// end
+	assert.Equal(t, false, it.next())
+
+	// ----------------------------
+	// check third page
+	// ----------------------------
+	page3 := w.wal.getInMemPage(2)
+	assert.Equal(t, PageVersion(0), page3.GetVersion())
+	assert.Equal(t, NewEpoch(0), page3.GetEpoch())
+	assert.Equal(t, PageNum(0), page3.GetPageNum())
+}
