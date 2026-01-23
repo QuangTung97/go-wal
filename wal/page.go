@@ -16,13 +16,6 @@ import (
 // page number: 8 bytes (little endian)
 // --------------------------------------------------------------------
 
-// --------------------------------------------------------------------
-// Format of a log entry
-// type: 1 byte
-// length: var-uint64 bytes
-// data: length of bytes
-// --------------------------------------------------------------------
-
 const (
 	checkSumOffset   = 1
 	flagsOffset      = checkSumOffset + 4
@@ -91,13 +84,5 @@ func ReadPage(p *Page, reader io.Reader) error {
 
 	return nil
 }
-
-// EntryType is type of log entry
-type EntryType uint8
-
-const (
-	EntryTypeNone EntryType = iota
-	EntryTypeFull
-)
 
 type LogEntry []byte

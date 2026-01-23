@@ -96,21 +96,24 @@ func (w *WAL) Shutdown() {
 }
 
 type NewEntryRequest struct {
-	wal *WAL
-
-	fromOffset LogDataOffset
-	dataSize   int64
+	wal        *WAL
+	remainSize int64
 }
 
 func (r *NewEntryRequest) Write(data []byte) {
+	prevPageNum := r.wal.latestOffset.ToPageNum()
+
+	nextLSN := (r.wal.latestOffset + 1).ToLSN()
+	// pageEndLSN := (nextLSN & PageNumMask) + (PageSize - 1)
+
+	nextPageNum := nextLSN.ToPageNum()
+	if nextPageNum > prevPageNum {
+		page := r.wal.getInMemPage(nextPageNum)
+		InitPage(&page, r.wal.latestEpoch, nextPageNum)
+	}
 }
 
 func (r *NewEntryRequest) Finish() {
-}
-
-func (r *NewEntryRequest) GetEndLSN() LSN {
-	endOffset := r.fromOffset + LogDataOffset(r.dataSize) - 1
-	return endOffset.ToLSN()
 }
 
 func (w *WAL) NewEntry(dataSize int64) (NewEntryRequest, error) {
@@ -118,20 +121,9 @@ func (w *WAL) NewEntry(dataSize int64) (NewEntryRequest, error) {
 
 	// TODO how to deal with WAL writer error?
 
-	from := w.latestOffset + 1
-	oldPageNum := w.latestOffset.ToLSN().ToPageNum()
-
-	w.latestOffset += LogDataOffset(dataSize)
-	newPageNum := w.latestOffset.ToLSN().ToPageNum()
-
-	for num := oldPageNum + 1; num <= newPageNum; num++ {
-		page := w.getInMemPage(num)
-		InitPage(&page, w.latestEpoch, num)
-	}
-
 	return NewEntryRequest{
-		fromOffset: from,
-		dataSize:   dataSize,
+		wal:        w,
+		remainSize: dataSize,
 	}, nil
 }
 

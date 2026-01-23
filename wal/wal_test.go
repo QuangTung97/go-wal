@@ -86,7 +86,8 @@ func TestWAL__Add_Entry__Check_In_Memory(t *testing.T) {
 
 	req, err := w.wal.NewEntry(7)
 	require.Equal(t, nil, err)
-	assert.Equal(t, LSN(PageSize+pageHeaderSize+7-1), req.GetEndLSN())
+
+	req.Write([]byte("test 01"))
 
 	// check second page
 	secondPage := w.wal.getInMemPage(1)

@@ -13,11 +13,6 @@ func TestPageVersion(t *testing.T) {
 	assert.Equal(t, PageVersion(1), FirstVersion)
 }
 
-func TestEntryType(t *testing.T) {
-	assert.Equal(t, EntryType(0), EntryTypeNone)
-	assert.Equal(t, EntryType(1), EntryTypeFull)
-}
-
 func TestPageOffsets(t *testing.T) {
 	assert.Equal(t, 1, checkSumOffset)
 	assert.Equal(t, 5, flagsOffset)
@@ -31,7 +26,7 @@ func TestPageOffsets(t *testing.T) {
 	assert.Equal(t, unsafe.Sizeof(LSN(0)), unsafe.Sizeof(LogDataOffset(0)))
 }
 
-func newPageData() *Page {
+func newTestPage() *Page {
 	var data [PageSize]byte
 	return &Page{
 		data: data[:],
@@ -39,7 +34,7 @@ func newPageData() *Page {
 }
 
 func TestInitPage(t *testing.T) {
-	p := newPageData()
+	p := newTestPage()
 	InitPage(p, NewEpoch(21), 12<<32+31)
 
 	assert.Equal(t, PageVersion(1), p.GetVersion())
@@ -48,7 +43,7 @@ func TestInitPage(t *testing.T) {
 }
 
 func TestReadWritePage(t *testing.T) {
-	page := newPageData()
+	page := newTestPage()
 	InitPage(page, NewEpoch(21), 12<<32+31)
 
 	// write
@@ -58,7 +53,7 @@ func TestReadWritePage(t *testing.T) {
 
 	// read
 	data := buf.Bytes()
-	newPage := newPageData()
+	newPage := newTestPage()
 	err = ReadPage(newPage, bytes.NewReader(data))
 	assert.Equal(t, nil, err)
 	assert.Equal(t, FirstVersion, newPage.GetVersion())

@@ -3,7 +3,7 @@ package wal
 const (
 	PageSizeLog = 9
 	PageSize    = 1 << PageSizeLog
-	PageNumMask = ^uint64(PageSize - 1)
+	PageNumMask = ^LSN(PageSize - 1)
 
 	DataSizePerPage = PageSize - pageHeaderSize
 )
@@ -11,7 +11,7 @@ const (
 type LSN uint64
 
 func (n LSN) ToPageNum() PageNum {
-	return PageNum(uint64(n)&PageNumMask) >> PageSizeLog
+	return PageNum(n&PageNumMask) >> PageSizeLog
 }
 
 func (n LSN) ToOffset() LogDataOffset {
@@ -23,10 +23,15 @@ func (n LSN) ToOffset() LogDataOffset {
 
 type LogDataOffset uint64
 
-func (o LogDataOffset) ToLSN() LSN {
+func (o LogDataOffset) ToPageNum() PageNum {
 	pageNum := uint64(o) / DataSizePerPage
+	return PageNum(pageNum)
+}
+
+func (o LogDataOffset) ToLSN() LSN {
+	pageNum := o.ToPageNum()
 	offsetInPage := uint64(o) % DataSizePerPage
-	return LSN(pageNum<<PageSizeLog + pageHeaderSize + offsetInPage)
+	return LSN(uint64(pageNum)<<PageSizeLog + pageHeaderSize + offsetInPage)
 }
 
 type PageNum uint64
