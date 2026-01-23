@@ -110,7 +110,7 @@ func (w *WAL) Shutdown() {
 	w.wg.Wait()
 }
 
-func (w *WAL) Write(inputData []byte) {
+func (w *WAL) Write(reader ByteReader) {
 	prevPageNum := w.latestOffset.ToPageNum()
 	prevType := EntryTypeFull
 
@@ -134,15 +134,15 @@ func (w *WAL) Write(inputData []byte) {
 			continue
 		}
 
-		if remainLen >= uint64(len(inputData)) {
+		if remainLen >= uint64(reader.Len()) {
 			entryType := EntryTypeFull
 			if prevType != EntryTypeFull {
 				entryType = EntryTypeLast
 			}
 
-			written := WriteLogEntry(page.data[offset:], entryType, inputData)
+			written := WriteLogEntry(page.data[offset:], entryType, reader, reader.Len())
 			w.latestOffset += LogDataOffset(written)
-			return // break loop
+			break
 		}
 
 		entryType := EntryTypeFirst
@@ -150,14 +150,14 @@ func (w *WAL) Write(inputData []byte) {
 			entryType = EntryTypeMiddle
 		}
 
-		written := WriteLogEntry(page.data[offset:], entryType, inputData[:remainLen])
-		inputData = inputData[remainLen:]
+		written := WriteLogEntry(page.data[offset:], entryType, reader, int64(remainLen))
 		w.latestOffset += LogDataOffset(written)
 		prevType = entryType
 	}
 }
 
 func (w *WAL) NotifyWriter() {
+	w.writtenLsn = w.latestOffset.ToLSN()
 	w.cond.Signal()
 }
 

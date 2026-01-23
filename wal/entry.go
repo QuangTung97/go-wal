@@ -27,14 +27,28 @@ const (
 	EntryTypeLast
 )
 
-func WriteLogEntry(pageData []byte, entryType EntryType, data []byte) int64 {
+func WriteLogEntry(
+	pageData []byte, entryType EntryType,
+	reader ByteReader, dataLen int64,
+) int64 {
 	pageData[0] = byte(entryType)
+
 	binary.LittleEndian.PutUint16(
 		pageData[logEntryDataLengthOffset:logEntryDataOffset],
-		uint16(len(data)),
+		uint16(dataLen),
 	)
-	copy(pageData[logEntryDataOffset:], data)
-	return logEntryDataOffset + int64(len(data))
+
+	newLen := reader.Len() - dataLen
+	pageData = pageData[logEntryDataOffset:]
+
+	for reader.Len() > newLen {
+		remainSize := reader.Len() - newLen
+		tmpData := reader.Read(remainSize)
+		copy(pageData, tmpData)
+		pageData = pageData[len(tmpData):]
+	}
+
+	return logEntryDataOffset + int64(dataLen)
 }
 
 func ReadLogEntry(pageData []byte) (EntryType, []byte, int64) {

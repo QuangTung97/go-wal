@@ -85,7 +85,8 @@ func TestWAL__Init_And_Check_Master_Page(t *testing.T) {
 }
 
 func (w *walTest) addEntry(input string) {
-	w.wal.Write([]byte(input))
+	reader := NewSimpleByteReader([]byte(input))
+	w.wal.Write(reader)
 }
 
 func TestWAL__Add_Entry__Check_In_Memory(t *testing.T) {
