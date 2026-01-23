@@ -63,6 +63,21 @@ func NewWAL(
 	return w, nil
 }
 
+func (w *WAL) NextRecoverEntry() bool {
+	return false
+}
+
+type EntryReader struct {
+}
+
+func (r *EntryReader) Read(data []byte) (n int, hasNext bool) {
+	return len(data), false
+}
+
+func (w *WAL) GetEntry() EntryReader {
+	return EntryReader{}
+}
+
 func (w *WAL) FinishRecover() {
 	w.latestEpoch.Inc()
 
@@ -95,31 +110,27 @@ func (w *WAL) Shutdown() {
 	w.wg.Wait()
 }
 
-type NewEntryRequest struct {
-	wal *WAL
-}
-
-func (r *NewEntryRequest) Write(inputData []byte) {
-	prevPageNum := r.wal.latestOffset.ToPageNum()
+func (w *WAL) Write(inputData []byte) {
+	prevPageNum := w.latestOffset.ToPageNum()
 	prevType := EntryTypeFull
 
 	for {
-		nextLSN := (r.wal.latestOffset + 1).ToLSN()
+		nextLSN := (w.latestOffset + 1).ToLSN()
 		// pageEndLSN := (nextLSN & PageNumMask) + (PageSize - 1)
 
 		nextPageNum := nextLSN.ToPageNum()
 		if nextPageNum > prevPageNum {
-			page := r.wal.getInMemPage(nextPageNum)
-			InitPage(&page, r.wal.latestEpoch, nextPageNum)
+			page := w.getInMemPage(nextPageNum)
+			InitPage(&page, w.latestEpoch, nextPageNum)
 			prevPageNum = nextPageNum
 		}
 
-		page := r.wal.getInMemPage(nextPageNum)
+		page := w.getInMemPage(nextPageNum)
 		offset := nextLSN.WithinPage()
 		remainLen := PageSize - offset - logEntryDataOffset
 
 		if remainLen <= 0 {
-			r.wal.latestOffset += LogDataOffset(PageSize - offset)
+			w.latestOffset += LogDataOffset(PageSize - offset)
 			continue
 		}
 
@@ -130,7 +141,7 @@ func (r *NewEntryRequest) Write(inputData []byte) {
 			}
 
 			written := WriteLogEntry(page.data[offset:], entryType, inputData)
-			r.wal.latestOffset += LogDataOffset(written)
+			w.latestOffset += LogDataOffset(written)
 			return // break loop
 		}
 
@@ -141,22 +152,9 @@ func (r *NewEntryRequest) Write(inputData []byte) {
 
 		written := WriteLogEntry(page.data[offset:], entryType, inputData[:remainLen])
 		inputData = inputData[remainLen:]
-		r.wal.latestOffset += LogDataOffset(written)
+		w.latestOffset += LogDataOffset(written)
 		prevType = entryType
 	}
-}
-
-func (r *NewEntryRequest) Finish() {
-}
-
-func (w *WAL) NewEntry(dataSize int64) (NewEntryRequest, error) {
-	// TODO wait on checkpoint
-
-	// TODO how to deal with WAL writer error?
-
-	return NewEntryRequest{
-		wal: w,
-	}, nil
 }
 
 func (w *WAL) NotifyWriter() {

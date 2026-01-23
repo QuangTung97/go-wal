@@ -85,12 +85,7 @@ func TestWAL__Init_And_Check_Master_Page(t *testing.T) {
 }
 
 func (w *walTest) addEntry(input string) {
-	req, err := w.wal.NewEntry(int64(len(input)))
-	if err != nil {
-		panic(err)
-	}
-	req.Write([]byte(input))
-	req.Finish()
+	w.wal.Write([]byte(input))
 }
 
 func TestWAL__Add_Entry__Check_In_Memory(t *testing.T) {
@@ -289,4 +284,11 @@ func TestWAL__Add_3_Entry__Fit_Page(t *testing.T) {
 	assert.Equal(t, PageVersion(0), page3.GetVersion())
 	assert.Equal(t, NewEpoch(0), page3.GetEpoch())
 	assert.Equal(t, PageNum(0), page3.GetPageNum())
+}
+
+func TestWAL__Add_Entry_Then_Recover(t *testing.T) {
+	w := newWalTest(t, 100, 20)
+	w.wal.FinishRecover()
+
+	w.wal.Shutdown()
 }
