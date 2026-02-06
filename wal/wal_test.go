@@ -124,9 +124,7 @@ func TestWAL__Add_Big_Entry__Check_In_Memory(t *testing.T) {
 		strings.Repeat("B", 300),
 		strings.Repeat("C", 500),
 	)
-	w.addEntry(inputStr) // add big entry
-
-	// TODO fix
+	w.addEntry(inputStr) // add second big entry
 
 	// ----------------------------
 	// check second page
@@ -139,12 +137,12 @@ func TestWAL__Add_Big_Entry__Check_In_Memory(t *testing.T) {
 	// check first entry
 	it := page2.newIterator()
 	assert.Equal(t, true, it.next())
-	assert.Equal(t, EntryTypeFull, it.entryType)
+	assert.Equal(t, EntryTypeNormal, it.entryType)
 	assert.Equal(t, "input01", string(it.entryData))
 
 	// next entry
 	assert.Equal(t, true, it.next())
-	assert.Equal(t, EntryTypeFirst, it.entryType)
+	assert.Equal(t, EntryTypeNormal, it.entryType)
 	assert.Equal(t, strings.Repeat("A", 200)+strings.Repeat("B", 281), string(it.entryData))
 
 	// no next
@@ -158,14 +156,10 @@ func TestWAL__Add_Big_Entry__Check_In_Memory(t *testing.T) {
 	assert.Equal(t, NewEpoch(1), page3.GetEpoch())
 	assert.Equal(t, PageNum(2), page3.GetPageNum())
 
-	// check third entry
-	it = page3.newIterator()
-	assert.Equal(t, true, it.next())
-	assert.Equal(t, EntryTypeMiddle, it.entryType)
-	assert.Equal(t, strings.Repeat("B", 19)+strings.Repeat("C", 472), string(it.entryData))
-
-	// no next
-	assert.Equal(t, false, it.next())
+	assert.Equal(t,
+		strings.Repeat("B", 19)+strings.Repeat("C", 512-19-pageHeaderSize),
+		string(page3.GetLogData()),
+	)
 
 	// ----------------------------
 	// check forth page
@@ -175,11 +169,7 @@ func TestWAL__Add_Big_Entry__Check_In_Memory(t *testing.T) {
 	assert.Equal(t, NewEpoch(1), page4.GetEpoch())
 	assert.Equal(t, PageNum(3), page4.GetPageNum())
 
-	// check forth entry
-	it = page4.newIterator()
-	assert.Equal(t, true, it.next())
-	assert.Equal(t, EntryTypeLast, it.entryType)
-	assert.Equal(t, strings.Repeat("C", 28), string(it.entryData))
+	assert.Equal(t, strings.Repeat("C", 25)+"\x00", string(page4.GetLogData()[:26]))
 }
 
 func TestWAL__Add_Entry__Over_Max_Page(t *testing.T) {

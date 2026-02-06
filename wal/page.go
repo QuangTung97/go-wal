@@ -94,6 +94,10 @@ func (p *Page) GetFlags() *PageFlags {
 	return (*PageFlags)(&p.data[flagsOffset])
 }
 
+func (p *Page) GetLogData() []byte {
+	return p.data[pageHeaderSize:]
+}
+
 func (p *Page) Write(writer io.Writer) error {
 	crcSum := crc32.ChecksumIEEE(p.data[:])
 	binary.LittleEndian.PutUint32(p.data[checkSumOffset:], crcSum)
