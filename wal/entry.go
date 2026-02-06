@@ -6,11 +6,12 @@ import (
 
 // --------------------------------------------------------------------
 // Format of a log entry
+// length: var-uint
 // type: 1 byte
-// length: 2 bytes
-// data: length of bytes
+// data: length of bytes - 1
 // --------------------------------------------------------------------
 
+// TODO remove
 const (
 	logEntryDataLengthOffset = 1
 	logEntryDataOffset       = logEntryDataLengthOffset + 2
