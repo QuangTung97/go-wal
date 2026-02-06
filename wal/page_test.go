@@ -17,6 +17,40 @@ func TestZeroPage(t *testing.T) {
 	assert.Equal(t, 512, len(pageWithZeros[:]))
 }
 
+func TestPageFlags(t *testing.T) {
+	t.Run("not full", func(t *testing.T) {
+		var flags PageFlags
+		assert.Equal(t, false, flags.IsNotFull())
+		assert.Equal(t, false, flags.IsTruncated())
+
+		// set true
+		flags.SetNotFull(true)
+		assert.Equal(t, true, flags.IsNotFull())
+		assert.Equal(t, false, flags.IsTruncated())
+
+		// set false
+		flags.SetNotFull(false)
+		assert.Equal(t, false, flags.IsNotFull())
+		assert.Equal(t, false, flags.IsTruncated())
+	})
+
+	t.Run("truncated", func(t *testing.T) {
+		var flags PageFlags
+		assert.Equal(t, false, flags.IsNotFull())
+		assert.Equal(t, false, flags.IsTruncated())
+
+		// set true
+		flags.SetTruncated(true)
+		assert.Equal(t, false, flags.IsNotFull())
+		assert.Equal(t, true, flags.IsTruncated())
+
+		// set false
+		flags.SetTruncated(false)
+		assert.Equal(t, false, flags.IsNotFull())
+		assert.Equal(t, false, flags.IsTruncated())
+	})
+}
+
 func TestPageOffsets(t *testing.T) {
 	assert.Equal(t, 1, checkSumOffset)
 	assert.Equal(t, 5, flagsOffset)

@@ -74,7 +74,7 @@ func (r *EntryReader) Read(data []byte) (n int, hasNext bool) {
 	return len(data), false
 }
 
-func (w *WAL) GetEntry() EntryReader {
+func (w *WAL) GetRecoveryEntry() EntryReader {
 	return EntryReader{}
 }
 
@@ -110,6 +110,7 @@ func (w *WAL) Shutdown() {
 	w.wg.Wait()
 }
 
+// Write need to be called inside mutex lock
 func (w *WAL) Write(reader ByteReader) {
 	prevPageNum := w.latestOffset.ToPageNum()
 	prevType := EntryTypeFull
@@ -156,6 +157,7 @@ func (w *WAL) Write(reader ByteReader) {
 	}
 }
 
+// NotifyWriter needs to be called inside mutex lock
 func (w *WAL) NotifyWriter() {
 	w.writtenLsn = w.latestOffset.ToLSN()
 	w.cond.Signal()

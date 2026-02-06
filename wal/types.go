@@ -52,3 +52,5 @@ func NewEpoch(num uint32) Epoch {
 func (e *Epoch) Inc() {
 	e.val++
 }
+
+// TODO add compare

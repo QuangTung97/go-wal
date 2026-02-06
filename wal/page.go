@@ -26,6 +26,37 @@ const (
 
 type PageVersion uint8
 
+type PageFlags uint8
+
+const (
+	PageFlagsNotFullMask PageFlags = 1 << iota
+	PageFlagsTruncatedMask
+)
+
+func (f *PageFlags) IsNotFull() bool {
+	return (*f & PageFlagsNotFullMask) != 0
+}
+
+func (f *PageFlags) SetNotFull(enabled bool) {
+	if enabled {
+		*f |= PageFlagsNotFullMask
+	} else {
+		*f &= ^PageFlagsNotFullMask
+	}
+}
+
+func (f *PageFlags) IsTruncated() bool {
+	return (*f & PageFlagsTruncatedMask) != 0
+}
+
+func (f *PageFlags) SetTruncated(enabled bool) {
+	if enabled {
+		*f |= PageFlagsTruncatedMask
+	} else {
+		*f &= ^PageFlagsTruncatedMask
+	}
+}
+
 const (
 	FirstVersion PageVersion = iota + 1
 )
