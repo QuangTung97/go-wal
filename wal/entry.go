@@ -21,7 +21,8 @@ type EntryType uint8
 
 const (
 	EntryTypeNone EntryType = iota
-	EntryTypeFull
+	EntryTypeNormal
+	EntryTypeFull // TODO remove
 	EntryTypeFirst
 	EntryTypeMiddle
 	EntryTypeLast

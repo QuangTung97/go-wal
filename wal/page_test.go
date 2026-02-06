@@ -83,6 +83,7 @@ func TestInitPage(t *testing.T) {
 func TestReadWritePage(t *testing.T) {
 	page := newTestPage()
 	InitPage(page, NewEpoch(21), 12<<32+31)
+	page.GetFlags().SetNotFull(true)
 
 	// write
 	var buf bytes.Buffer
@@ -95,6 +96,12 @@ func TestReadWritePage(t *testing.T) {
 	err = ReadPage(newPage, bytes.NewReader(data))
 	assert.Equal(t, nil, err)
 	assert.Equal(t, FirstVersion, newPage.GetVersion())
+
+	// check flags
+	assert.Equal(t, true, newPage.GetFlags().IsNotFull())
+	assert.Equal(t, false, newPage.GetFlags().IsTruncated())
+
+	// check data match
 	assert.Equal(t, page.data, newPage.data)
 
 	// mismatch checksum
