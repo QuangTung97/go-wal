@@ -22,6 +22,7 @@ func (n LSN) ToOffset() LogDataOffset {
 	return LogDataOffset(pageNum)*DataSizePerPage + index - pageHeaderSize
 }
 
+// WithinPage get the byte offset within the page
 func (n LSN) WithinPage() uint64 {
 	return uint64(n) & WithinPageMask
 }

@@ -68,7 +68,7 @@ type Page struct {
 var pageWithZeros [PageSize]byte
 
 func InitPage(p *Page, epoch Epoch, num PageNum) {
-	// clear page
+	// clear page with zeros
 	copy(p.data[:], pageWithZeros[:])
 
 	p.data[0] = uint8(FirstVersion)

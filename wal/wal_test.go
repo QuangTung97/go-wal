@@ -103,7 +103,7 @@ func TestWAL__Add_Entry__Check_In_Memory(t *testing.T) {
 
 	it := secondPage.newIterator()
 	assert.Equal(t, true, it.next())
-	assert.Equal(t, EntryTypeFull, it.entryType)
+	assert.Equal(t, EntryTypeNormal, it.entryType)
 	assert.Equal(t, "test 01", string(it.entryData))
 
 	// check third page, not yet init
@@ -125,6 +125,8 @@ func TestWAL__Add_Big_Entry__Check_In_Memory(t *testing.T) {
 		strings.Repeat("C", 500),
 	)
 	w.addEntry(inputStr) // add big entry
+
+	// TODO fix
 
 	// ----------------------------
 	// check second page

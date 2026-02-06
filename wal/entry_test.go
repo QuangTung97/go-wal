@@ -19,12 +19,12 @@ func TestLogEntry__Read_Write(t *testing.T) {
 	page := newTestPage()
 
 	input := NewSimpleByteReader([]byte("test data 01"))
-	n := WriteLogEntry(page.data, EntryTypeFull, input, input.Len())
+	n := WriteLogEntry(page.data, EntryTypeNormal, input, input.Len())
 	assert.Equal(t, int64(15), n)
 
 	entryType, data, n := ReadLogEntry(page.data)
 	assert.Equal(t, int64(15), n)
-	assert.Equal(t, EntryTypeFull, entryType)
+	assert.Equal(t, EntryTypeNormal, entryType)
 	assert.Equal(t, "test data 01", string(data))
 	assert.Equal(t, 12, len(data))
 

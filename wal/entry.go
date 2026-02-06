@@ -39,17 +39,20 @@ func WriteLogEntry(
 		uint16(dataLen),
 	)
 
-	newLen := reader.Len() - dataLen
 	pageData = pageData[logEntryDataOffset:]
+	dataLen = WriteLogEntryDataOnly(pageData, reader, dataLen)
+	return logEntryDataOffset + dataLen
+}
 
+func WriteLogEntryDataOnly(pageData []byte, reader ByteReader, dataLen int64) int64 {
+	newLen := reader.Len() - dataLen
 	for reader.Len() > newLen {
 		remainSize := reader.Len() - newLen
 		tmpData := reader.Read(remainSize)
 		copy(pageData, tmpData)
 		pageData = pageData[len(tmpData):]
 	}
-
-	return logEntryDataOffset + int64(dataLen)
+	return dataLen
 }
 
 func ReadLogEntry(pageData []byte) (EntryType, []byte, int64) {

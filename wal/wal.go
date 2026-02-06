@@ -113,7 +113,7 @@ func (w *WAL) Shutdown() {
 // Write need to be called inside mutex lock
 func (w *WAL) Write(reader ByteReader) {
 	prevPageNum := w.latestOffset.ToPageNum()
-	prevType := EntryTypeFull
+	isSplit := false
 
 	for {
 		nextLSN := (w.latestOffset + 1).ToLSN()
@@ -121,6 +121,7 @@ func (w *WAL) Write(reader ByteReader) {
 
 		nextPageNum := nextLSN.ToPageNum()
 		if nextPageNum > prevPageNum {
+			// init the page in memory
 			page := w.getInMemPage(nextPageNum)
 			InitPage(&page, w.latestEpoch, nextPageNum)
 			prevPageNum = nextPageNum
@@ -128,32 +129,38 @@ func (w *WAL) Write(reader ByteReader) {
 
 		page := w.getInMemPage(nextPageNum)
 		offset := nextLSN.WithinPage()
-		remainLen := PageSize - offset - logEntryDataOffset
+
+		remainLen := PageSize - offset - logEntryDataOffset // must have the full entry header
+		if isSplit {
+			remainLen = PageSize - offset // if entry is split => not have to account for entry header
+		}
 
 		if remainLen <= 0 {
+			// add the remaining bytes (ignoring entry header)
 			w.latestOffset += LogDataOffset(PageSize - offset)
 			continue
 		}
 
-		if remainLen >= uint64(reader.Len()) {
-			entryType := EntryTypeFull
-			if prevType != EntryTypeFull {
-				entryType = EntryTypeLast
-			}
+		writeLen := reader.Len()
+		withBreak := true
+		if remainLen < uint64(reader.Len()) {
+			writeLen = int64(remainLen)
+			withBreak = false
+		}
 
-			written := WriteLogEntry(page.data[offset:], entryType, reader, reader.Len())
+		if isSplit {
+			written := WriteLogEntryDataOnly(page.data[offset:], reader, writeLen)
 			w.latestOffset += LogDataOffset(written)
+		} else {
+			written := WriteLogEntry(page.data[offset:], EntryTypeNormal, reader, writeLen)
+			w.latestOffset += LogDataOffset(written)
+		}
+
+		if withBreak {
 			break
 		}
 
-		entryType := EntryTypeFirst
-		if prevType == EntryTypeFirst {
-			entryType = EntryTypeMiddle
-		}
-
-		written := WriteLogEntry(page.data[offset:], entryType, reader, int64(remainLen))
-		w.latestOffset += LogDataOffset(written)
-		prevType = entryType
+		isSplit = true
 	}
 }
 
